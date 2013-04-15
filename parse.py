@@ -2,7 +2,7 @@ import array
 from qtypes import TranslateType, q_str, types, q_none
 
 class Parser:
-  def __init__(self,types):
+  def __init__(self,types = types):
     self.types=types
     # Defines order of type code lookup (important for types like q_str that are sub_types of a type already used for translation)
     self.type_order = ['char','symbol','month','date','minute','second','time','datetime','int','long','float','bool','real','short','byte','dict','flip','table']
@@ -55,4 +55,3 @@ class Parser:
     message.fromstring(parser.write_byte(t_code))
     return t.write_data(val,message)
 
-parser = Parser(types)

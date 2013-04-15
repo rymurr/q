@@ -1,63 +1,78 @@
+'''
+TODO sort out send and recieve in cursor function! Lots of mess there
+'''
 import socket
-import select
 import array
 import cStringIO
 
-from qtypes import q_str
-from parse import parser as _parser
+import parse 
 
-_parser.update_types()
 
-class conn(object):
-    
-  SYNC=True
-  ASYNC=False
-  RECONNECT_ATTEMPTS = 5  # Number of reconnect attempts to make before throwing exception
-  RECONNECT_WAIT = 5000 # Milliseconds to wait between reconnect attempts 
-  MAX_MSG_QUERY_LENGTH = 1024 # Maximum number of characters from query to return in exception message
-  MAX_MSG_LIST_LENGTH = 100 # Maximum length of a data list specified in a query before it is summarized in exception message
+def connect(host = 'localhost', port = 5000, user = '', password = ''):
+    '''
+    return new q connection
+    '''
+    return Connection(host, port, user, password)
 
-  def __init__(self, host='localhost', port=5000, user=''):
+class Connection(object):
+  '''
+  connection class for q wrapper
+  TODO make it look/act like DB-API 2.0 compliant db interface
+  see http://www.python.org/dev/peps/pep-0249/
+  '''
+
+  def __init__(self, host='localhost', port=5000, user='', password = ''):
     self.host=host
     self.port=port
-    self.user=user
+    self.user=user + ':' + password
     self.sock=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.connect()
       
   def close(self):
+    '''
+    close socket and end connection
+    '''
     self.sock.close()
       
-  def connect(self, attempts=1):
-    # This for loop doesn't make sense, if there's an exception it'll just quit
-    for attempt in range(attempts):
-      try:
-        self.sock.connect((self.host,self.port))
-        login = array.array('b',self.user + '\0')  #null terminated signed char array (bytes)
-        self.sock.send(login.tostring())
-        result = self.sock.recv(1)  #blocking recv
-        if not result:
-          raise Exception("access denied")
-      except:
-        raise Exception ('unable to connect to host')
+  def connect(self):
+    '''
+    make connection or throw an error
+    '''
+    try:
+      self.sock.connect((self.host,self.port))
+      login = array.array('b',self.user + '\0')  #null terminated signed char array (bytes)
+      self.sock.send(login.tostring())
+      result = self.sock.recv(1)  #blocking recv
+      if not result:
+        raise Exception("access denied")
+    except:
+      raise Exception ('unable to connect to host')
       
-  def __call__(self, *args):
-    if len(args):
-      args=list(args)
-      if isinstance(args[0], str):
-        args[0]=q_str(args[0])
-        if len(args) == 1:
-          args=args[0]
-      self._send(conn.SYNC,args)
+  def cursor(self):
+      return Cursor(self)
+
+
+class Cursor(object):
+  '''
+  DB-API 2.0 compliant cursor obj
+  '''
+  def __init__(self, connection):
+      self.connection = connection
+      self.parser = parse.Parser()
+      self.parser.update_types()
+      
+  def execute(self, query):
+    self._send(query)
     return self._receive()
       
-  def _send(self, sync, query):
+  def _send(self, query, sync = True):
     if sync:
       message = array.array('b', [0,1,0,0]) # 1 for synchronous requests
     else:
       message = array.array('b', [0,0,0,0]) # 1 for synchronous requests
-    message.fromstring(_parser.write_integer(0)) # reserve space for message length
-    message = _parser.write(query,message)
-    message[4:8] = _parser.write_integer(len(message))
+    message.fromstring(self.parser.write_integer(0)) # reserve space for message length
+    message = self.parser.write(query,message)
+    message[4:8] = self.parser.write_integer(len(message))
     self.last_outgoing=message
     self.sock.send(message)
 
@@ -66,16 +81,16 @@ class conn(object):
     header = self.sock.recv(8)
     #Endianness of byte doesn't matter when determining endianness
     endianness = lambda x:x
-    if not _parser.read_byte(endianness,0,header)[0] == 1:
+    if not self.parser.read_byte(endianness,0,header)[0] == 1:
       endianness = '>'.__add__
-    (data_size,self.offset) = _parser.read_integer(endianness,4,header)
+    (data_size,self.offset) = self.parser.read_integer(endianness,4,header)
     
     bytes = self._recv_size(data_size - 8)
     #ensure that it reads all the data
-    if _parser.read_byte(endianness,0,bytes)[0] == -128 :
-      (val,self.offset) = _parser.read_symbol(endianness,1,bytes)
+    if self.parser.read_byte(endianness,0,bytes)[0] == -128 :
+      (val,self.offset) = self.parser.read_symbol(endianness,1,bytes)
       raise Exception(val)
-    (val,self.offset) = _parser.read(endianness,0,bytes)
+    (val,self.offset) = self.parser.read(endianness,0,bytes)
     return val
   
   def _recv_size(self, size):
