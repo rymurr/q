@@ -6,27 +6,51 @@ next 32 bits = size of message (total size!)
 REST IS DATA!
 next 8 bits = type of element..convert to int. Map of types to follow
 then data
+
+
+-ve is atomic type
++ve is vector of atomic type
+
+TODO:
+    factor out endian convert stuff
+    get rid of if statement somehow?
 '''
 from bitstring import BitStream
+
+types = {
+        6: ('int','32'), #int vector
+        -6: ('int','32'), #int
+        4: ('int','8'), #byte vector
+        -4: ('int','8'), #byte
+        
+        }
+
+INT = -6
+
+def format(val_type, endianness):
+    type_spec = types[val_type]
+    return type_spec[0]+endianness+':'+type_spec[1]
+
+def format_list(val_type, endianness, length):
+    type_spec = types[val_type]
+    return str(length)+'*'+type_spec[0]+endianness+':'+type_spec[1]
 
 def parse(bits):
     bstream = BitStream(bits)
     endian = bstream.read(8).int
     msg_type = bstream.read(8).int
     _ = bstream.read(16)
-    size_raw = bstream.read(32)
-    endian_convert = lambda x: getattr(x, 'intle' if endian == 1 else 'intbe')
-    endian_convert_list = '*intle:32' if endian == 1 else '*intbe:32'
-    size = endian_convert(size_raw)
+    endianness = 'le' if endian == 1 else 'be'
+    size = bstream.read(format(INT, endianness))
     while (bstream.pos < 8*size):
-        val_type = endian_convert(bstream.read(8))
-        if val_type == -6:
-            data = endian_convert(bstream.read(32))
-        elif val_type == 6:
-            attributes = bstream.read(8)
-            length = endian_convert(bstream.read(32))
-            data = bstream.readlist(str(length)+endian_convert_list)
-            
+        val_type = bstream.read(8).int
+        if val_type < 0:
+            data = bstream.read(format(val_type, endianness))
+        else:
+            attributes = bstream.read(8).int
+            length = bstream.read(format(INT, endianness))
+            data = bstream.readlist(format_list(val_type, endianness, length))
+
     return data        
 
 def test_int():
@@ -39,3 +63,8 @@ def test_int_vector():
     data = [1]
     bits = b'0x010000001200000006000100000001000000'
     assert data == parse(bits)
+
+def test_byte_vector():
+     data = [0,1,2,3,4]
+     bits = b'0x01000000130000000400050000000001020304'
+     assert data == parse(bits)
