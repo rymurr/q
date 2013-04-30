@@ -21,7 +21,10 @@ TODO:
     think a bit about speed
     more test cases
     fill in types map
+    optimize dict?
+    move lambda function into types dict?
 '''
+import itertools
 from bitstring import BitStream
 
 types = {
@@ -64,14 +67,21 @@ def get_header(bstream):
 
 def get_data(bstream, endianness):
     val_type = bstream.read(8).int
-    if val_type < 0:
+    if val_type == -11:
+        str_convert = lambda z: ''.join([chr(i) for i in itertools.takewhile(lambda x: x!= 0, iter_char(z, endianness))])
+        data = str_convert(bstream)
+    elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
+    elif val_type == 11:    
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        str_convert = lambda z: ''.join([chr(i) for i in itertools.takewhile(lambda x: x!= 0, iter_char(z, endianness))])
+        data = [str_convert(bstream) for i in range(length)]
     elif 90 > val_type > 0:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
     elif val_type == 99:
-        assert False
         keys = get_data(bstream, endianness)
         vals = get_data(bstream, endianness)
         data = dict(zip(keys, vals))
