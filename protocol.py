@@ -21,11 +21,11 @@ TODO:
     think a bit about speed
     more test cases
     fill in types map
-    optimize dict?
-    move lambda function into types dict?
+    optimize dict handling?
 '''
 import itertools
 from bitstring import BitStream
+from collections import OrderedDict
 
 types = {
         6: ('int','32'), #int vector
@@ -49,6 +49,9 @@ class iter_char(object):
             x = self.bstream.read(format(BYTE,self.endianness))
             yield x
 
+def str_convert(bstream, endianness):
+    return ''.join([chr(i) for i in itertools.takewhile(lambda x: x!=0, iter_char(bstream, endianness))])
+    
 def format(val_type, endianness):
     type_spec = types[val_type]
     return type_spec[0]+endianness+':'+type_spec[1]
@@ -68,16 +71,15 @@ def get_header(bstream):
 def get_data(bstream, endianness):
     val_type = bstream.read(8).int
     if val_type == -11:
-        str_convert = lambda z: ''.join([chr(i) for i in itertools.takewhile(lambda x: x!= 0, iter_char(z, endianness))])
-        data = str_convert(bstream)
+        data = str_convert(bstream, endianness)
     elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
     elif val_type == 11:    
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
-        str_convert = lambda z: ''.join([chr(i) for i in itertools.takewhile(lambda x: x!= 0, iter_char(z, endianness))])
-        data = [str_convert(bstream) for i in range(length)]
+        data = [str_convert(bstream, endianness) for i in range(length)]
     elif 90 > val_type > 0:
+
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
@@ -85,6 +87,10 @@ def get_data(bstream, endianness):
         keys = get_data(bstream, endianness)
         vals = get_data(bstream, endianness)
         data = dict(zip(keys, vals))
+    elif val_type == 127:
+        keys = get_data(bstream, endianness)
+        vals = get_data(bstream, endianness)
+        data = OrderedDict(zip(keys, vals))
     elif val_type > 90:
         data = []
     else:
@@ -126,4 +132,12 @@ def test_simple_dict():
     bits = b'0x0100000021000000630b0002000000610062000600020000000200000003000000'
     assert data == parse(bits) 
     
+def test_ordered_dict():
+    data = {'a':2,'b':3}
+    bits = b'0x01000000210000007f0b0102000000610062000600020000000200000003000000'
+    assert data == parse(bits) 
 
+def test_dict_vector():
+    data = {'a':[2], 'b':[3]}
+    bits = b'0x010000002d000000630b0002000000610062000000020000000600010000000200000006000100000003000000'
+    assert data == parse(bits)
