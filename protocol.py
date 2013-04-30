@@ -30,10 +30,21 @@ types = {
         4: ('int','8'), #byte vector
         -4: ('int','8'), #byte
         0:('list','0'), #list
-        
+        -11:('symbol',''), #symbol
+        11:('symbol',''), #symbol vector
         }
 
 INT = -6
+BYTE = -4
+
+class iter_char(object):
+    def __init__(self, bstream, endianness):
+        self.bstream = bstream
+        self.endianness = endianness
+    def __iter__(self):
+        while self.bstream.pos < self.bstream.len:
+            x = self.bstream.read(format(BYTE,self.endianness))
+            yield x
 
 def format(val_type, endianness):
     type_spec = types[val_type]
@@ -59,6 +70,11 @@ def get_data(bstream, endianness):
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
+    elif val_type == 99:
+        assert False
+        keys = get_data(bstream, endianness)
+        vals = get_data(bstream, endianness)
+        data = dict(zip(keys, vals))
     elif val_type > 90:
         data = []
     else:
