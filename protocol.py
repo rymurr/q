@@ -17,13 +17,20 @@ types are found here:
     http://www.kx.com/q/d/q1.htm
 
 TODO:
-    make able to do recursive for more complex structures
     think a bit about speed
-    more test cases
+    more test cases for other types
     fill in types map
     optimize dict handling?
+    fix keyed table
+    fix functions
+    have to reverse this to generate bit stream for putting onto socket
+    refactor especially the way types are handled and the get_data method
+    add in async/concurrency stuff for speed
+    profile!
+    integrate back into connection class and do full tests    
 '''
 import itertools
+import pandas
 from bitstring import BitStream
 from collections import OrderedDict
 
@@ -35,6 +42,8 @@ types = {
         0:('list','0'), #list
         -11:('symbol',''), #symbol
         11:('symbol',''), #symbol vector
+        -10:('int', '8'), #char
+        10:('int', '8'), #char vector
         }
 
 INT = -6
@@ -79,18 +88,30 @@ def get_data(bstream, endianness):
         length = bstream.read(format(INT, endianness))
         data = [str_convert(bstream, endianness) for i in range(length)]
     elif 90 > val_type > 0:
-
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
     elif val_type == 99:
+        #import ipdb;ipdb.set_trace()
         keys = get_data(bstream, endianness)
         vals = get_data(bstream, endianness)
-        data = dict(zip(keys, vals))
+        if isinstance(keys, pandas.DataFrame):
+            data = pandas.concat([keys, vals], axis = 1)
+        else:    
+            data = dict(zip(keys, vals))
+    elif val_type == 98:
+        attributes = bstream.read(8).int
+        data = pandas.DataFrame(get_data(bstream, endianness))
     elif val_type == 127:
         keys = get_data(bstream, endianness)
         vals = get_data(bstream, endianness)
-        data = OrderedDict(zip(keys, vals))
+        if isinstance(keys, pandas.DataFrame):
+            data = pandas.concat([keys, vals], axis = 1)
+        else:    
+            data = OrderedDict(zip(keys, vals))
+    elif val_type == 100:
+        context = str_convert(bstream, endianness)
+        data = '.' + context + ''.join([chr(i) for i in get_data(bstream, endianness)])
     elif val_type > 90:
         data = []
     else:
@@ -141,3 +162,52 @@ def test_dict_vector():
     data = {'a':[2], 'b':[3]}
     bits = b'0x010000002d000000630b0002000000610062000000020000000600010000000200000006000100000003000000'
     assert data == parse(bits)
+
+def test_table_simple():
+    data = pandas.DataFrame([{'a':2,'b':3}])
+    bits = b'0x010000002f0000006200630b0002000000610062000000020000000600010000000200000006000100000003000000'
+    assert (data.values == parse(bits).values).all()
+    
+def test_table_ordered():
+    data = pandas.DataFrame([{'a':2,'b':3}])
+    bits = b'0x010000002f0000006201630b0002000000610062000000020000000603010000000200000006000100000003000000'
+    assert (data.values == parse(bits).values).all()
+    
+def test_keyed_table():
+    data = pandas.DataFrame([{'a':2,'b':3}])
+    bits = b'0x010000003f000000636200630b00010000006100000001000000060001000000020000006200630b0001000000620000000100000006000100000003000000'
+    assert (data.values == parse(bits).values).all()
+
+def test_sorted_keyed_table():
+    data = pandas.DataFrame([{'a':2,'b':3}])
+    bits = b'0x010000003f0000007f6201630b00010000006100000001000000060001000000020000006200630b0001000000620000000100000006000100000003000000'
+    assert (data.values == parse(bits).values).all()
+
+def test_function():
+    data = '.{x+y}'
+    bits = b'0x010000001500000064000a00050000007b782b797d'
+    assert data == parse(bits)
+    
+def test_non_root_function():
+    data = '.d{x+y}'
+    bits = b'0x01000000160000006464000a00050000007b782b797d'
+    assert data == parse(bits)
+    
+    
+
+x = '''
+have to test:
+    boolean 1
+    short 5
+    long 7
+    real 8
+    float 9
+    month 13
+    date 14
+    datetime 15
+    minute 17
+    second 18
+    time 19
+    ??enum 20
+'''    
+
