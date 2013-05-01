@@ -17,12 +17,9 @@ types are found here:
     http://www.kx.com/q/d/q1.htm
 
 TODO:
-    think a bit about speed
     more test cases for other types
     fill in types map
     optimize dict handling?
-    fix keyed table
-    fix functions
     have to reverse this to generate bit stream for putting onto socket
     refactor especially the way types are handled and the get_data method
     add in async/concurrency stuff for speed
