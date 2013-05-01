@@ -32,15 +32,21 @@ from bitstring import BitStream
 from collections import OrderedDict
 
 types = {
-        6: ('int','32'), #int vector
-        -6: ('int','32'), #int
-        4: ('int','8'), #byte vector
+        -1: ('int', '4'), #bool
+        1: ('int', '4'), #bool vector
         -4: ('int','8'), #byte
-        0:('list','0'), #list
-        -11:('symbol',''), #symbol
-        11:('symbol',''), #symbol vector
+        4: ('int','8'), #byte vector
+        -5: ('int', '16'), #short
+        5: ('int', '16'), #short vector
+        -6: ('int','32'), #int
+        6: ('int','32'), #int vector
+        -7: ('int','64'), #long
+        7: ('int','64'), #long vector
         -10:('int', '8'), #char
         10:('int', '8'), #char vector
+        -11:('symbol',''), #symbol
+        11:('symbol',''), #symbol vector
+         0:('list','0'), #list
         }
 
 INT = -6
@@ -78,12 +84,20 @@ def get_data(bstream, endianness):
     val_type = bstream.read(8).int
     if val_type == -11:
         data = str_convert(bstream, endianness)
+    elif val_type == -1:
+        data = -1
+        while data == -1:
+            data = [bool(x) for i,x  in enumerate(bstream.readlist(format_list(val_type, '', 2))) if i%2 == 1][0]
     elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
     elif val_type == 11:    
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = [str_convert(bstream, endianness) for i in range(length)]
+    elif val_type == 1:
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        data = [bool(x) for i,x in enumerate(bstream.readlist(format_list(val_type, '', 2*length))) if i%2 == 1]
     elif 90 > val_type > 0:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
@@ -190,13 +204,38 @@ def test_non_root_function():
     bits = b'0x01000000160000006464000a00050000007b782b797d'
     assert data == parse(bits)
     
+def test_bool():
+    data = False
+    bits = b'0x010000000a000000ff00'
+    assert data == parse(bits)
     
+def test_bool_vector():
+    data = [False]
+    bits = b'0x010000000f00000001000100000000'
+    assert data == parse(bits)
+    
+def test_short():
+    data = 1
+    bits = b'0x010000000b000000fb0100'
+    assert data == parse(bits)
+
+def test_short_vector():
+    data = [1]
+    bits = b'0x01000000100000000500010000000100'
+    assert data == parse(bits)
+    
+def test_long():
+    data = 1
+    bits = b'0x0100000011000000f90100000000000000'
+    assert data == parse(bits)
+
+def test_long_vector():
+    data = [1]
+    bits = b'0x01000000160000000700010000000100000000000000'
+    assert data == parse(bits)
 
 x = '''
 have to test:
-    boolean 1
-    short 5
-    long 7
     real 8
     float 9
     month 13
