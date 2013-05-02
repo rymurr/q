@@ -1,20 +1,15 @@
 '''
-first 8 bits = endianness: 01 == little, 00 == big
-next 8 bits = message type: 0=async, 1=sync, 2=response
-next 16 bits = blank
-next 32 bits = size of message (total size!)
-REST IS DATA!
-next 8 bits = type of element..convert to int. Map of types to follow
-then data
+Primary source of kdb ipc protocol definitions
+here we define all the q data types and their on the wire form
+A parser is used to convert between the python format and kdb/q format
 
-
--ve is atomic type
-+ve is vector of atomic type
-
-tests come from examples given here:
-    http://code.kx.com/wiki/Reference/ipcprotocol
 types are found here:
     http://www.kx.com/q/d/q1.htm
+
+Note on dates and times
+    dates are number of days since Jan 1 2000
+    times are number of hours/minutes/seconds/millis
+    datetimes are float64 days since Jan 1 (fractional day is converted to millis and parsed)
 
 TODO:
     missing enum!
@@ -27,10 +22,13 @@ TODO:
 import itertools
 import pandas
 import datetime
-from bitstring import BitStream
+from bitstring import BitStream, pack
 from collections import OrderedDict
 
-header_format = 'int:8=endian, int:8=async, pad:16, int:32=length'
+#header format
+header_format = 'intle:8=endian, intle:8=async, pad:16, intle:32=length'
+
+#types: -ve is atomic +ve is vector
 types = {
         -1: ('int', '4'), #bool
         1: ('int', '4'), #bool vector
@@ -70,6 +68,19 @@ BYTE = -4
 Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
 MILLIS = 8.64E7 
 
+def parse_on_the_wire(data):
+    data_format = header_format
+    objects = {'endian':1, 'async':0}
+    if isinstance(data,int):
+        data_format += ',intle:8=type, intle:32=data'
+        objects['type'] = -6
+        objects['data'] = data
+        objects['length'] = 8 + 5
+        
+    bstream = pack(data_format, **objects)
+    return bstream
+   
+
 class iter_char(object):
     def __init__(self, bstream, endianness):
         self.bstream = bstream
@@ -93,7 +104,7 @@ def format_list(val_type, endianness, length):
 def get_header(bstream):
     endian = bstream.read(8).int
     msg_type = bstream.read(8).int
-    _ = bstream.read(16)
+    bstream.read(16)
     endianness = 'le' if endian == 1 else 'be'
     size = bstream.read(format(INT, endianness))
     return endianness, size
