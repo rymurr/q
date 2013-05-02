@@ -17,9 +17,7 @@ types are found here:
     http://www.kx.com/q/d/q1.htm
 
 TODO:
-    more test cases for other types
-    fill in types map
-    optimize dict handling?
+    missing enum!
     have to reverse this to generate bit stream for putting onto socket
     refactor especially the way types are handled and the get_data method
     add in async/concurrency stuff for speed
@@ -28,11 +26,11 @@ TODO:
 '''
 import itertools
 import pandas
+import datetime
 from bitstring import BitStream
 from collections import OrderedDict
 
-from nose.tools import assert_almost_equal
-
+header_format = 'int:8=endian, int:8=async, pad:16, int:32=length'
 types = {
         -1: ('int', '4'), #bool
         1: ('int', '4'), #bool vector
@@ -52,11 +50,25 @@ types = {
         10:('int', '8'), #char vector
         -11:('symbol',''), #symbol
         11:('symbol',''), #symbol vector
+        -13:('int', '32'), #month
+        13:('int', '32'), #month vector
+        -14:('int', '32'), #date
+        14:('int', '32'), #date vector
+        -15:('float', '64'), #datetime
+        15:('float', '64'), #datetime vector
+        -17:('int', '32'), #hour
+        17:('int', '32'), #hour vector
+        -18:('int', '32'), #second
+        18:('int', '32'), #second vector
+        -19:('int', '32'), #time
+        19:('int', '32'), #time vector
          0:('list','0'), #list
         }
 
 INT = -6
 BYTE = -4
+Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
+MILLIS = 8.64E7 
 
 class iter_char(object):
     def __init__(self, bstream, endianness):
@@ -86,6 +98,31 @@ def get_header(bstream):
     size = bstream.read(format(INT, endianness))
     return endianness, size
 
+def get_date(i):
+    m = i + 24000
+    year = m/12
+    month = m%12+1
+    day = 1
+    return datetime.datetime(year, month, day)
+
+def get_hour(i):
+    if i/3600000 > 0:
+        hour = (i/1000)/3600
+        minute = ((i/1000)/60)%60
+        second = (i/1000)%60
+        micro = i%1000
+    elif i/3600 > 0:
+        hour = i/3600
+        minute = (i/60)%60
+        second = i%60
+        micro = 0
+    else:
+        hour = i/60
+        minute = i%60
+        second = 0
+        micro = 0
+    return datetime.time(hour, minute, second, micro)
+
 def get_data(bstream, endianness):
     val_type = bstream.read(8).int
     if val_type == -11:
@@ -94,22 +131,51 @@ def get_data(bstream, endianness):
         data = -1
         while data == -1:
             data = [bool(x) for i,x  in enumerate(bstream.readlist(format_list(val_type, '', 2))) if i%2 == 1][0]
+    elif val_type == -13:
+        data = get_date(bstream.read(format(val_type, endianness)))
+    elif val_type == -14:
+        data = datetime.datetime.fromordinal(bstream.read(format(val_type, endianness))+Y2KDAYS)
+    elif val_type == -15:
+        dt = bstream.read(format(val_type, endianness))
+        data = datetime.datetime.fromordinal(int(dt)+Y2KDAYS) + datetime.timedelta(milliseconds = dt%1*MILLIS)
+    elif val_type == -20:
+        data = []
+    elif -20 < val_type < -10:
+        data = get_hour(bstream.read(format(val_type, endianness)))
     elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
-    elif val_type == 11:    
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        data = [str_convert(bstream, endianness) for i in range(length)]
     elif val_type == 1:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = [bool(x) for i,x in enumerate(bstream.readlist(format_list(val_type, '', 2*length))) if i%2 == 1]
-    elif 90 > val_type > 0:
+    elif val_type == 11:    
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        data = [str_convert(bstream, endianness) for i in range(length)]
+    elif val_type == 13:
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        data = [get_date(x) for x in bstream.readlist(format_list(val_type, endianness, length))]
+    elif val_type == 14:
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        data = [datetime.datetime.fromordinal(x+Y2KDAYS) for x in bstream.readlist(format_list(val_type, endianness, length))]
+    elif val_type == 15:
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        dt = bstream.readlist(format_list(val_type, endianness, length))
+        data = [datetime.datetime.fromordinal(int(x)+Y2KDAYS)+datetime.timedelta(milliseconds=x%1*MILLIS) for x in dt]
+    elif val_type == 20:
+        data = []
+    elif 90 > val_type > 10:
+        attributes = bstream.read(8).int
+        length = bstream.read(format(INT, endianness))
+        data = [get_hour(x) for x in bstream.readlist(format_list(val_type, endianness, length))]
+    elif 10 >= val_type > 0:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
     elif val_type == 99:
-        #import ipdb;ipdb.set_trace()
         keys = get_data(bstream, endianness)
         vals = get_data(bstream, endianness)
         if isinstance(keys, pandas.DataFrame):
@@ -145,129 +211,4 @@ def parse(bits):
         data = get_data(bstream, endianness)
     return data    
 
-def test_int():
-    data = 1
-    bits = b'0x010000000d000000fa01000000'
-    assert data == parse(bits)
-
-def test_int_vector():
-    data = [1]
-    bits = b'0x010000001200000006000100000001000000'
-    assert data == parse(bits)
-
-def test_byte_vector():
-     data = [0,1,2,3,4]
-     bits = b'0x01000000130000000400050000000001020304'
-     assert data == parse(bits)
-     
-def test_list():
-    data = [[0,1,2,3,4]]
-    bits = b'0x01000000190000000000010000000400050000000001020304'
-    assert data == parse(bits)
-    
-def test_simple_dict():
-    data = {'a':2,'b':3}
-    bits = b'0x0100000021000000630b0002000000610062000600020000000200000003000000'
-    assert data == parse(bits) 
-    
-def test_ordered_dict():
-    data = {'a':2,'b':3}
-    bits = b'0x01000000210000007f0b0102000000610062000600020000000200000003000000'
-    assert data == parse(bits) 
-
-def test_dict_vector():
-    data = {'a':[2], 'b':[3]}
-    bits = b'0x010000002d000000630b0002000000610062000000020000000600010000000200000006000100000003000000'
-    assert data == parse(bits)
-
-def test_table_simple():
-    data = pandas.DataFrame([{'a':2,'b':3}])
-    bits = b'0x010000002f0000006200630b0002000000610062000000020000000600010000000200000006000100000003000000'
-    assert (data.values == parse(bits).values).all()
-    
-def test_table_ordered():
-    data = pandas.DataFrame([{'a':2,'b':3}])
-    bits = b'0x010000002f0000006201630b0002000000610062000000020000000603010000000200000006000100000003000000'
-    assert (data.values == parse(bits).values).all()
-    
-def test_keyed_table():
-    data = pandas.DataFrame([{'a':2,'b':3}])
-    bits = b'0x010000003f000000636200630b00010000006100000001000000060001000000020000006200630b0001000000620000000100000006000100000003000000'
-    assert (data.values == parse(bits).values).all()
-
-def test_sorted_keyed_table():
-    data = pandas.DataFrame([{'a':2,'b':3}])
-    bits = b'0x010000003f0000007f6201630b00010000006100000001000000060001000000020000006200630b0001000000620000000100000006000100000003000000'
-    assert (data.values == parse(bits).values).all()
-
-def test_function():
-    data = '.{x+y}'
-    bits = b'0x010000001500000064000a00050000007b782b797d'
-    assert data == parse(bits)
-    
-def test_non_root_function():
-    data = '.d{x+y}'
-    bits = b'0x01000000160000006464000a00050000007b782b797d'
-    assert data == parse(bits)
-    
-def test_bool():
-    data = False
-    bits = b'0x010000000a000000ff00'
-    assert data == parse(bits)
-    
-def test_bool_vector():
-    data = [False]
-    bits = b'0x010000000f00000001000100000000'
-    assert data == parse(bits)
-    
-def test_short():
-    data = 1
-    bits = b'0x010000000b000000fb0100'
-    assert data == parse(bits)
-
-def test_short_vector():
-    data = [1]
-    bits = b'0x01000000100000000500010000000100'
-    assert data == parse(bits)
-    
-def test_long():
-    data = 1
-    bits = b'0x0100000011000000f90100000000000000'
-    assert data == parse(bits)
-
-def test_long_vector():
-    data = [1]
-    bits = b'0x01000000160000000700010000000100000000000000'
-    assert data == parse(bits)
-
-def test_real():
-    data = 2.3
-    bits = b'0x010000000d000000f833331340'
-    assert_almost_equal(data, parse(bits))
-
-def test_real_vector():
-    data = [2.3]
-    bits = b'0x010000001200000008000100000033331340'
-    assert_almost_equal(data[0], parse(bits)[0])
-    
-def test_float():
-    data = 2.3
-    bits = b'0x0100000011000000f76666666666660240'
-    assert_almost_equal(data, parse(bits))
-
-def test_float_vector():
-    data = [2.3]
-    bits = b'0x01000000160000000900010000006666666666660240'
-    assert_almost_equal(data[0], parse(bits)[0])
-
-x = '''
-have to test:
-    month 13
-    date 14
-    datetime 15
-    minute 17
-    second 18
-    time 19
-    ??enum 20
-'''    
 
