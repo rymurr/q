@@ -31,6 +31,8 @@ import pandas
 from bitstring import BitStream
 from collections import OrderedDict
 
+from nose.tools import assert_almost_equal
+
 types = {
         -1: ('int', '4'), #bool
         1: ('int', '4'), #bool vector
@@ -42,6 +44,10 @@ types = {
         6: ('int','32'), #int vector
         -7: ('int','64'), #long
         7: ('int','64'), #long vector
+        -8: ('float','32'), #real
+        8: ('float','32'), #real vector
+        -9: ('float','64'), #float
+        9: ('float','64'), #float vector
         -10:('int', '8'), #char
         10:('int', '8'), #char vector
         -11:('symbol',''), #symbol
@@ -234,10 +240,28 @@ def test_long_vector():
     bits = b'0x01000000160000000700010000000100000000000000'
     assert data == parse(bits)
 
+def test_real():
+    data = 2.3
+    bits = b'0x010000000d000000f833331340'
+    assert_almost_equal(data, parse(bits))
+
+def test_real_vector():
+    data = [2.3]
+    bits = b'0x010000001200000008000100000033331340'
+    assert_almost_equal(data[0], parse(bits)[0])
+    
+def test_float():
+    data = 2.3
+    bits = b'0x0100000011000000f76666666666660240'
+    assert_almost_equal(data, parse(bits))
+
+def test_float_vector():
+    data = [2.3]
+    bits = b'0x01000000160000000900010000006666666666660240'
+    assert_almost_equal(data[0], parse(bits)[0])
+
 x = '''
 have to test:
-    real 8
-    float 9
     month 13
     date 14
     datetime 15
