@@ -112,29 +112,51 @@ def get_header(bstream):
 def get_date(i):
     m = i + 24000
     year = m/12
-    month = m%12+1
+    month = m % 12+1
     day = 1
     return datetime.datetime(year, month, day)
 
 def get_hour(i):
     if i/3600000 > 0:
         hour = (i/1000)/3600
-        minute = ((i/1000)/60)%60
-        second = (i/1000)%60
-        micro = i%1000
+        minute = ((i/1000)/60) % 60
+        second = (i/1000) % 60
+        micro = i % 1000
     elif i/3600 > 0:
         hour = i/3600
-        minute = (i/60)%60
-        second = i%60
+        minute = (i/60) % 60
+        second = i % 60
         micro = 0
     else:
         hour = i/60
-        minute = i%60
+        minute = i % 60
         second = 0
         micro = 0
     return datetime.time(hour, minute, second, micro)
 
+#currently going through a rather large refit of this method
+#the goal is to make some simple/clean/testable code
+#need to reverse this next to make data go onto the wire!
+#need to think of an efficient way to do that!
+#also need to test this V for speed
 def get_data(bstream, endianness):
+    int_types = {-11:get_symbol(bstream, endianness, val_type),
+            -1:get_bool(bstream, endianness, val_type),
+            -13:get_month(bstream, endianness, val_type),
+            -14:get_date(bstream, endianness, val_type),
+            -15:get_datetime(bstream, endianness, val_type),
+            -20:[],
+            1:get_bool_list(bstream, endianness, val_type),
+            11:get_symbol_list(bstream, endianness, val_type),
+            13:get_month_list(bstream, endianness, val_type),
+            14:get_date_list(bstream, endianness, val_type),
+            15:get_datetime_list(bstream, endianness, val_type),
+            20:[],
+            98:get_table(bstream, endianness, val_type),
+            99:get_dict(bstream, endianness, val_type),
+            100:get_lambda_func(bstream, endianness, val_type),
+            127:get_orderted_dict(bstream, endianness, val_type),
+            }
     val_type = bstream.read(8).int
     if val_type == -11:
         data = str_convert(bstream, endianness)

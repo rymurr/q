@@ -1,3 +1,10 @@
+'''
+
+tests come from examples given here:
+    http://code.kx.com/wiki/Reference/ipcprotocol
+types are found here:
+    http://www.kx.com/q/d/q1.htm
+'''
 import pandas
 import datetime
 
