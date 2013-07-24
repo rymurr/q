@@ -109,7 +109,7 @@ def get_header(bstream):
     size = bstream.read(format(INT, endianness))
     return endianness, size
 
-def get_date(i):
+def get_date_from_q(i):
     m = i + 24000
     year = m/12
     month = m % 12+1
@@ -139,67 +139,111 @@ def get_hour(i):
 #need to reverse this next to make data go onto the wire!
 #need to think of an efficient way to do that!
 #also need to test this V for speed
+def get_symbol(bstream, endianness, val_type):
+    return str_convert(bstream, endianness)
+
+def get_bool(bstream, endianness, val_type):
+    data = -1
+    while data == -1:
+        data = [bool(x) for i, x  in enumerate(
+            bstream.readlist(format_list(val_type, '', 2))) if i%2 == 1][0]
+    return data    
+
+def get_month(bstream, endianness, val_type):
+    return get_date_from_q(bstream.read(format(val_type, endianness)))
+
+def get_date(bstream, endianness, val_type):
+    return datetime.datetime.fromordinal(bstream.read(format(val_type, endianness))+Y2KDAYS)
+
+def get_datetime(bstream, endianness, val_type):
+    dt = bstream.read(format(val_type, endianness))
+    return datetime.datetime.fromordinal(int(dt)+Y2KDAYS) + datetime.timedelta(milliseconds = dt%1*MILLIS)
+    
+def get_bool_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    data = [bool(x) for i,x in enumerate(bstream.readlist(format_list(val_type, '', 2*length))) if i%2 == 1]
+    return data
+
+def get_symbol_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    data = [str_convert(bstream, endianness) for i in range(length)]
+    return data
+
+def get_month_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    data = [get_date_from_q(x) for x in bstream.readlist(format_list(val_type, endianness, length))]
+    return data
+
+def get_date_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    data = [datetime.datetime.fromordinal(x+Y2KDAYS) for x in bstream.readlist(format_list(val_type, endianness, length))]
+    return data
+
+def get_datetime_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    dt = bstream.readlist(format_list(val_type, endianness, length))
+    data = [datetime.datetime.fromordinal(int(x)+Y2KDAYS)+datetime.timedelta(milliseconds=x%1*MILLIS) for x in dt]
+    return data
+
+def get_table(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    data = pandas.DataFrame(get_data(bstream, endianness))
+    return data
+
+def get_dict(bstream, endianness, val_type):
+    keys = get_data(bstream, endianness)
+    vals = get_data(bstream, endianness)
+    if isinstance(keys, pandas.DataFrame):
+        data = pandas.concat([keys, vals], axis = 1)
+    else:    
+        data = dict(zip(keys, vals))
+    return data
+
+def get_lambda_func(bstream, endianness, val_type):
+    context = str_convert(bstream, endianness)
+    data = '.' + context + ''.join([chr(i) for i in get_data(bstream, endianness)])
+    return data
+
+def get_ordered_dict(bstream, endianness, val_type):
+    keys = get_data(bstream, endianness)
+    vals = get_data(bstream, endianness)
+    if isinstance(keys, pandas.DataFrame):
+        data = pandas.concat([keys, vals], axis = 1)
+    else:    
+        data = OrderedDict(zip(keys, vals))
+    return data    
+
+int_types = {-11:get_symbol,
+    -1:get_bool,
+    -13:get_month,
+    -14:get_date,
+    -15:get_datetime,
+    -20:[],
+    1:get_bool_list,
+    11:get_symbol_list,
+    13:get_month_list,
+    14:get_date_list,
+    15:get_datetime_list,
+    20:[],
+    98:get_table,
+    99:get_dict,
+    100:get_lambda_func,
+    127:get_ordered_dict,
+    }
+
 def get_data(bstream, endianness):
-    int_types = {-11:get_symbol(bstream, endianness, val_type),
-            -1:get_bool(bstream, endianness, val_type),
-            -13:get_month(bstream, endianness, val_type),
-            -14:get_date(bstream, endianness, val_type),
-            -15:get_datetime(bstream, endianness, val_type),
-            -20:[],
-            1:get_bool_list(bstream, endianness, val_type),
-            11:get_symbol_list(bstream, endianness, val_type),
-            13:get_month_list(bstream, endianness, val_type),
-            14:get_date_list(bstream, endianness, val_type),
-            15:get_datetime_list(bstream, endianness, val_type),
-            20:[],
-            98:get_table(bstream, endianness, val_type),
-            99:get_dict(bstream, endianness, val_type),
-            100:get_lambda_func(bstream, endianness, val_type),
-            127:get_orderted_dict(bstream, endianness, val_type),
-            }
     val_type = bstream.read(8).int
-    if val_type == -11:
-        data = str_convert(bstream, endianness)
-    elif val_type == -1:
-        data = -1
-        while data == -1:
-            data = [bool(x) for i,x  in enumerate(bstream.readlist(format_list(val_type, '', 2))) if i%2 == 1][0]
-    elif val_type == -13:
-        data = get_date(bstream.read(format(val_type, endianness)))
-    elif val_type == -14:
-        data = datetime.datetime.fromordinal(bstream.read(format(val_type, endianness))+Y2KDAYS)
-    elif val_type == -15:
-        dt = bstream.read(format(val_type, endianness))
-        data = datetime.datetime.fromordinal(int(dt)+Y2KDAYS) + datetime.timedelta(milliseconds = dt%1*MILLIS)
-    elif val_type == -20:
-        data = []
+    if val_type in int_types:
+        data = int_types[val_type](bstream, endianness, val_type)
     elif -20 < val_type < -10:
         data = get_hour(bstream.read(format(val_type, endianness)))
     elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
-    elif val_type == 1:
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        data = [bool(x) for i,x in enumerate(bstream.readlist(format_list(val_type, '', 2*length))) if i%2 == 1]
-    elif val_type == 11:    
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        data = [str_convert(bstream, endianness) for i in range(length)]
-    elif val_type == 13:
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        data = [get_date(x) for x in bstream.readlist(format_list(val_type, endianness, length))]
-    elif val_type == 14:
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        data = [datetime.datetime.fromordinal(x+Y2KDAYS) for x in bstream.readlist(format_list(val_type, endianness, length))]
-    elif val_type == 15:
-        attributes = bstream.read(8).int
-        length = bstream.read(format(INT, endianness))
-        dt = bstream.readlist(format_list(val_type, endianness, length))
-        data = [datetime.datetime.fromordinal(int(x)+Y2KDAYS)+datetime.timedelta(milliseconds=x%1*MILLIS) for x in dt]
-    elif val_type == 20:
-        data = []
     elif 90 > val_type > 10:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
@@ -208,33 +252,12 @@ def get_data(bstream, endianness):
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = bstream.readlist(format_list(val_type, endianness, length))
-    elif val_type == 99:
-        keys = get_data(bstream, endianness)
-        vals = get_data(bstream, endianness)
-        if isinstance(keys, pandas.DataFrame):
-            data = pandas.concat([keys, vals], axis = 1)
-        else:    
-            data = dict(zip(keys, vals))
-    elif val_type == 98:
-        attributes = bstream.read(8).int
-        data = pandas.DataFrame(get_data(bstream, endianness))
-    elif val_type == 127:
-        keys = get_data(bstream, endianness)
-        vals = get_data(bstream, endianness)
-        if isinstance(keys, pandas.DataFrame):
-            data = pandas.concat([keys, vals], axis = 1)
-        else:    
-            data = OrderedDict(zip(keys, vals))
-    elif val_type == 100:
-        context = str_convert(bstream, endianness)
-        data = '.' + context + ''.join([chr(i) for i in get_data(bstream, endianness)])
     elif val_type > 90:
         data = []
     else:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
-        data = [get_data(bstream, endianness) for i in range(length)]
-
+        data = [get_data(bstream, endianness) for _ in range(length)]
     return data        
 
 def parse(bits):
