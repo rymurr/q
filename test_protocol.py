@@ -7,29 +7,38 @@ types are found here:
 '''
 import pandas
 import datetime
+import numpy as np
 
 from nose.tools import assert_almost_equal
-from protocol import parse
+from protocol import parse, format_bits
 
 def test_int():
     data = 1
     bits = b'0x010000000d000000fa01000000'
+    assert data == parse(format_bits(data))
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
 
 def test_int_vector():
-    data = [1]
+    data = np.array([1])
     bits = b'0x010000001200000006000100000001000000'
+    assert data == parse(format_bits(data))
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
 
 def test_byte_vector():
      data = [0,1,2,3,4]
      bits = b'0x01000000130000000400050000000001020304'
+     #assert data == parse(format_bits(data))
      assert data == parse(bits)
+     #assert bits == format_bits(data)
      
 def test_list():
     data = [[0,1,2,3,4]]
     bits = b'0x01000000190000000000010000000400050000000001020304'
+    #assert data == parse(format_bits(data))
     assert data == parse(bits)
+    #assert bits == format_bits(data)
     
 def test_simple_dict():
     data = {'a':2,'b':3}

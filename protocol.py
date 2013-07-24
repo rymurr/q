@@ -22,11 +22,9 @@ TODO:
 import itertools
 import pandas
 import datetime
+import numpy as np
 from bitstring import BitStream, pack
 from collections import OrderedDict
-
-#header format
-header_format = 'intle:8=endian, intle:8=async, pad:16, intle:32=length'
 
 #types: -ve is atomic +ve is vector
 types = {
@@ -63,23 +61,37 @@ types = {
          0:('list','0'), #list
         }
 
+inv_types = {
+        int: (-6, 'int', '32'),
+        np.int64: (6, 'int', '32'),
+        }
 INT = -6
 BYTE = -4
 Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
 MILLIS = 8.64E7 
 
-def parse_on_the_wire(data):
+#header format
+header_format = 'intle:8=endian, intle:8=async, pad:16, intle:32=length, bits=data'
+
+def format_bits(data, endianness = 'le'):
+    endian = 1 if endianness == 'le' else 0
     data_format = header_format
-    objects = {'endian':1, 'async':0}
-    if isinstance(data,int):
-        data_format += ',intle:8=type, intle:32=data'
-        objects['type'] = -6
-        objects['data'] = data
-        objects['length'] = 8 + 5
-        
+    data = parse_on_the_wire(data, endianness)
+    length = len(data)/8 + 8
+    objects = {'endian':endian, 'async':0, 'length': length, 'data':data}
     bstream = pack(data_format, **objects)
     return bstream
-   
+
+def parse_on_the_wire(data, endianness):
+    if isinstance(data,np.ndarray):
+        dtype = inv_types[data.dtype.type]
+        data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, {3}*{1}{0}:{2}'.format(endianness, dtype[1], dtype[2], len(data))
+        bstream = pack(data_format, *data, type=dtype[0], attributes=0, length=len(data))
+    else:    
+        dtype = inv_types[type(data)]
+        data_format = 'int{0}:8=type, {1}{0}:{2}'.format(endianness, dtype[1], dtype[2])
+        bstream = pack(data_format, data, type=dtype[0])
+    return bstream
 
 class iter_char(object):
     def __init__(self, bstream, endianness):
