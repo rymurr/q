@@ -27,17 +27,17 @@ def test_int_vector():
     assert bits == format_bits(data).__str__()
 
 def test_byte_vector():
-     data = [0,1,2,3,4]
+     data = np.array([0,1,2,3,4], dtype=np.int8)
      bits = b'0x01000000130000000400050000000001020304'
-     #assert data == parse(format_bits(data))
-     assert data == parse(bits)
-     #assert bits == format_bits(data)
+     assert (data == parse(format_bits(data))).all()
+     assert (data == parse(bits)).all()
+     assert bits == format_bits(data)
      
 def test_list():
-    data = [[0,1,2,3,4]]
+    data = [np.array([0,1,2,3,4], dtype=np.int8)]
     bits = b'0x01000000190000000000010000000400050000000001020304'
     #assert data == parse(format_bits(data))
-    assert data == parse(bits)
+    assert (data == parse(bits)).all()
     #assert bits == format_bits(data)
     
 def test_simple_dict():

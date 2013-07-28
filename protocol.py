@@ -29,21 +29,21 @@ from collections import OrderedDict
 #types: -ve is atomic +ve is vector
 types = {
         -1: ('int', '4'), #bool
-        1: ('int', '4'), #bool vector
+        1: ('int', '4', np.bool), #bool vector
         -4: ('int','8'), #byte
-        4: ('int','8'), #byte vector
+        4: ('int','8', np.int8), #byte vector
         -5: ('int', '16'), #short
-        5: ('int', '16'), #short vector
+        5: ('int', '16', np.int16), #short vector
         -6: ('int','32'), #int
-        6: ('int','32'), #int vector
+        6: ('int','32', np.int32), #int vector
         -7: ('int','64'), #long
-        7: ('int','64'), #long vector
+        7: ('int','64', np.int64), #long vector
         -8: ('float','32'), #real
-        8: ('float','32'), #real vector
+        8: ('float','32', np.float32), #real vector
         -9: ('float','64'), #float
-        9: ('float','64'), #float vector
+        9: ('float','64', np.float64), #float vector
         -10:('int', '8'), #char
-        10:('int', '8'), #char vector
+        10:('int', '8', np.char), #char vector
         -11:('symbol',''), #symbol
         11:('symbol',''), #symbol vector
         -13:('int', '32'), #month
@@ -64,6 +64,7 @@ types = {
 inv_types = {
         int: (-6, 'int', '32'),
         np.int64: (6, 'int', '32'),
+        np.int8: (4, 'int', '8'),
         }
 INT = -6
 BYTE = -4
@@ -248,6 +249,10 @@ int_types = {-11:get_symbol,
     127:get_ordered_dict,
     }
 
+def format_raw_list(val_type, length):
+    type_spec = types[val_type]
+    return type_spec[2], length*int(type_spec[1])
+
 def get_data(bstream, endianness):
     val_type = bstream.read(8).int
     if val_type in int_types:
@@ -263,13 +268,15 @@ def get_data(bstream, endianness):
     elif 10 >= val_type > 0:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
-        data = bstream.readlist(format_list(val_type, endianness, length))
+        nptype, bstype = format_raw_list(val_type, length)
+        data = np.fromstring(bstream.read(bstype).bytes, dtype=nptype)
+        #data = bstream.readlist(format_list(val_type, endianness, length))
     elif val_type > 90:
         data = []
     else:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
-        data = [get_data(bstream, endianness) for _ in range(length)]
+        data = np.array([get_data(bstream, endianness) for _ in range(length)])
     return data        
 
 def parse(bits):
