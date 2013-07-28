@@ -137,12 +137,11 @@ def parse_on_the_wire(data, endianness, attributes = 0):
     elif isinstance(data, str):
         bstream = pack('{0}*hex:8'.format(len(data)),*[hex(ord(i)) for i in data]) + BitStream(b'0x00')
     elif type(data) == pandas.DataFrame:
-        import ipdb;ipdb.set_trace()
         dtype = inv_types[type(data)]
-        data_format = 'int{0}:8=type, bits=cols,int{0}:8=typearray, int{0}:8=attributes, int{0}:32=length, bits=vals'.format(endianness)
-        cols = parse_on_the_wire(data.columns, endianness)
-        vals = sum(parse_on_the_wire(col, endianness) for i,col in data.iterkv())
-        bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals)
+        data_format = 'int{0}:8=type, int{0}:8=tabattrib, int{0}:8=dicttype, bits=cols,int{0}:8=typearray, int{0}:8=attributes, int{0}:32=length, bits=vals'.format(endianness)
+        cols = parse_on_the_wire(data.columns.values, endianness)
+        vals = sum(parse_on_the_wire(col.values, endianness) for i,col in data.iterkv())
+        bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals, tabattrib=0, dicttype=99)
         
     else:    
         dtype = inv_types[type(data)]
