@@ -72,6 +72,7 @@ def test_dict_vector():
 def test_table_simple():
     data = pandas.DataFrame([{'a':2,'b':3}])
     bits = b'0x010000002f0000006200630b0002000000610062000000020000000600010000000200000006000100000003000000'
+    tits = b'0x010000002d000000620b0002000000610062000000020000000600010000000200000006000100000003000000'
     assert data == parse(format_bits(data)) 
     assert bits == format_bits(data).__str__()
     assert (data.values == parse(bits).values).all()

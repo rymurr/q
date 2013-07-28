@@ -21,6 +21,8 @@ TODO:
     integrate back into connection class and do full tests    
     clarify handling of OrderedDict
     add in pd.Series
+    clarify handling of sorted and keyed tables
+    add indicies (associated with keys)
 '''
 import itertools
 import pandas
