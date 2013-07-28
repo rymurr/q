@@ -9,9 +9,17 @@ import pandas
 import datetime
 import numpy as np
 
-from nose.tools import assert_almost_equal
+from collections import OrderedDict
+from nose.tools import assert_almost_equal, assert_items_equal
 from protocol import parse, format_bits
 
+def assert_all_equal(input_a, input_b):
+    if len(input_a) != len(input_b):
+        return False
+    for i in range(len(input_a)):
+        if not (input_a[i] == input_b[i]).all():
+            return False
+    return True    
 def test_int():
     data = 1
     bits = b'0x010000000d000000fa01000000'
@@ -27,37 +35,45 @@ def test_int_vector():
     assert bits == format_bits(data).__str__()
 
 def test_byte_vector():
-     data = np.array([0,1,2,3,4], dtype=np.int8)
-     bits = b'0x01000000130000000400050000000001020304'
-     assert (data == parse(format_bits(data))).all()
-     assert (data == parse(bits)).all()
-     assert bits == format_bits(data)
+    data = np.array([0,1,2,3,4], dtype=np.int8)
+    bits = b'0x01000000130000000400050000000001020304'
+    assert (data == parse(format_bits(data))).all()
+    assert (data == parse(bits)).all()
+    assert bits == format_bits(data)
      
 def test_list():
     data = [np.array([0,1,2,3,4], dtype=np.int8)]
     bits = b'0x01000000190000000000010000000400050000000001020304'
-    #assert data == parse(format_bits(data))
-    assert (data == parse(bits)).all()
-    #assert bits == format_bits(data)
+    assert_all_equal(data, parse(format_bits(data)))
+    assert_all_equal(data, parse(bits))
+    assert bits == format_bits(data)
     
 def test_simple_dict():
     data = {'a':2,'b':3}
     bits = b'0x0100000021000000630b0002000000610062000600020000000200000003000000'
+    assert data == parse(format_bits(data)) 
     assert data == parse(bits) 
+    assert bits == format_bits(data).__str__()
     
 def test_ordered_dict():
-    data = {'a':2,'b':3}
+    data = OrderedDict({'a':2,'b':3})
     bits = b'0x01000000210000007f0b0102000000610062000600020000000200000003000000'
+    assert data == parse(format_bits(data)) 
     assert data == parse(bits) 
+    assert bits == format_bits(data).__str__()
 
 def test_dict_vector():
     data = {'a':[2], 'b':[3]}
     bits = b'0x010000002d000000630b0002000000610062000000020000000600010000000200000006000100000003000000'
-    assert data == parse(bits)
+    assert data == parse(format_bits(data)) 
+    assert data == parse(bits) 
+    assert bits == format_bits(data).__str__()
 
 def test_table_simple():
     data = pandas.DataFrame([{'a':2,'b':3}])
     bits = b'0x010000002f0000006200630b0002000000610062000000020000000600010000000200000006000100000003000000'
+    assert data == parse(format_bits(data)) 
+    assert bits == format_bits(data).__str__()
     assert (data.values == parse(bits).values).all()
     
 def test_table_ordered():

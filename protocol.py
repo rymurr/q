@@ -13,11 +13,14 @@ Note on dates and times
 
 TODO:
     missing enum!
-    have to reverse this to generate bit stream for putting onto socket
-    refactor especially the way types are handled and the get_data method
+    refactor especially the way types are handled and the get_data method and the serializing methods 
+    need some refactoring of function names
+    need some docstrings
     add in async/concurrency stuff for speed
     profile!
     integrate back into connection class and do full tests    
+    clarify handling of OrderedDict
+    add in pd.Series
 '''
 import itertools
 import pandas
@@ -63,11 +66,18 @@ types = {
 
 inv_types = {
         int: (-6, 'int', '32'),
+        list: (0, '', ''),
+        dict: (99, '', ''),
+        str: (-11, 'hex', '8'),
+        OrderedDict: (127, '', ''),
         np.int64: (6, 'int', '32'),
         np.int8: (4, 'int', '8'),
+        np.object_: (11, 'hex', 8,),
+        pandas.DataFrame: (98, '', ''),
         }
 INT = -6
 BYTE = -4
+NULL = BitStream('0x00')
 Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
 MILLIS = 8.64E7 
 
@@ -83,11 +93,55 @@ def format_bits(data, endianness = 'le'):
     bstream = pack(data_format, **objects)
     return bstream
 
-def parse_on_the_wire(data, endianness):
+#This is looking like it needs a refactor!
+def parse_on_the_wire(data, endianness, attributes = 0):
     if isinstance(data,np.ndarray):
         dtype = inv_types[data.dtype.type]
-        data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, {3}*{1}{0}:{2}'.format(endianness, dtype[1], dtype[2], len(data))
-        bstream = pack(data_format, *data, type=dtype[0], attributes=0, length=len(data))
+        if data.dtype.type == np.object_:
+            data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, bits'.format(endianness)
+            bstream = pack(data_format, sum([parse_on_the_wire(i, endianness) for i in data]), type = dtype[0], attributes=attributes, length=len(data))
+        else:
+            data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, {3}*{1}{0}:{2}'.format(endianness, dtype[1], dtype[2], len(data))
+            bstream = pack(data_format, *data, type=dtype[0], attributes=attributes, length=len(data))
+    elif isinstance(data, list):
+        type_set = set([type(i) for i in data])
+        if len(type_set) == 1 and not list(type_set)[0] == np.ndarray:
+            dtype = inv_types[list(type_set)[0]]
+            if list(type_set)[0] == str or list(type_set)[0] == list:
+                data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, bits'.format(endianness)
+                bstream = pack(data_format, sum([parse_on_the_wire(i, endianness) for i in data]), type = -dtype[0], attributes=attributes, length=len(data))
+            else:
+                data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, {3}*{1}{0}:{2}'.format(endianness, dtype[1], dtype[2], len(data))
+                bstream = pack(data_format, *data, type=-dtype[0], attributes=attributes, length=len(data))
+        else:
+            dtype = inv_types[type(data)]
+            data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, bits=data'.format(endianness)
+            bits = sum([parse_on_the_wire(i, endianness) for i in data])
+            bstream = pack(data_format, data=bits, type=-dtype[0], attributes=attributes, length=len(data))
+    elif type(data) == dict:
+        dtype = inv_types[type(data)]
+        data_format = 'int{0}:8=type, bits=data'.format(endianness)
+        keys = parse_on_the_wire(data.keys(), endianness)
+        vals = parse_on_the_wire(data.values(), endianness)
+        bits = keys + vals
+        bstream = pack(data_format, data=bits, type=dtype[0], attributes=attributes, length=len(data))
+    elif type(data) == OrderedDict:
+        dtype = inv_types[type(data)]
+        data_format = 'int{0}:8=type, bits=data'.format(endianness)
+        keys = parse_on_the_wire(data.keys(), endianness, 1)
+        vals = parse_on_the_wire(data.values(), endianness)
+        bits = keys + vals
+        bstream = pack(data_format, data=bits, type=dtype[0], attributes=attributes, length=len(data))
+    elif isinstance(data, str):
+        bstream = pack('{0}*hex:8'.format(len(data)),*[hex(ord(i)) for i in data]) + BitStream(b'0x00')
+    elif type(data) == pandas.DataFrame:
+        import ipdb;ipdb.set_trace()
+        dtype = inv_types[type(data)]
+        data_format = 'int{0}:8=type, bits=cols,int{0}:8=typearray, int{0}:8=attributes, int{0}:32=length, bits=vals'.format(endianness)
+        cols = parse_on_the_wire(data.columns, endianness)
+        vals = sum(parse_on_the_wire(col, endianness) for i,col in data.iterkv())
+        bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals)
+        
     else:    
         dtype = inv_types[type(data)]
         data_format = 'int{0}:8=type, {1}{0}:{2}'.format(endianness, dtype[1], dtype[2])
@@ -184,6 +238,13 @@ def get_symbol_list(bstream, endianness, val_type):
     data = [str_convert(bstream, endianness) for i in range(length)]
     return data
 
+def get_char_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    nptype, bstype = format_raw_list(val_type, length)
+    data = bstream.read(bstype).bytes
+    return data
+
 def get_month_list(bstream, endianness, val_type):
     attributes = bstream.read(8).int
     length = bstream.read(format(INT, endianness))
@@ -219,7 +280,7 @@ def get_dict(bstream, endianness, val_type):
 
 def get_lambda_func(bstream, endianness, val_type):
     context = str_convert(bstream, endianness)
-    data = '.' + context + ''.join([chr(i) for i in get_data(bstream, endianness)])
+    data = '.' + context + get_data(bstream, endianness)
     return data
 
 def get_ordered_dict(bstream, endianness, val_type):
@@ -238,6 +299,7 @@ int_types = {-11:get_symbol,
     -15:get_datetime,
     -20:[],
     1:get_bool_list,
+    10:get_char_list,
     11:get_symbol_list,
     13:get_month_list,
     14:get_date_list,
@@ -246,7 +308,7 @@ int_types = {-11:get_symbol,
     98:get_table,
     99:get_dict,
     100:get_lambda_func,
-    127:get_ordered_dict,
+    127:get_ordered_dict
     }
 
 def format_raw_list(val_type, length):
@@ -265,7 +327,7 @@ def get_data(bstream, endianness):
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = [get_hour(x) for x in bstream.readlist(format_list(val_type, endianness, length))]
-    elif 10 >= val_type > 0:
+    elif 10 > val_type > 0:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         nptype, bstype = format_raw_list(val_type, length)
@@ -276,7 +338,7 @@ def get_data(bstream, endianness):
     else:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
-        data = np.array([get_data(bstream, endianness) for _ in range(length)])
+        data = [get_data(bstream, endianness) for _ in range(length)]
     return data        
 
 def parse(bits):
