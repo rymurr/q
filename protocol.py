@@ -137,11 +137,12 @@ def parse_on_the_wire(data, endianness, attributes = 0):
     elif isinstance(data, str):
         bstream = pack('{0}*hex:8'.format(len(data)),*[hex(ord(i)) for i in data]) + BitStream(b'0x00')
     elif type(data) == pandas.DataFrame:
+        is_sorted = 1 if data.index.is_monotonic else 0
         dtype = inv_types[type(data)]
         data_format = 'int{0}:8=type, int{0}:8=tabattrib, int{0}:8=dicttype, bits=cols,int{0}:8=typearray, int{0}:8=attributes, int{0}:32=length, bits=vals'.format(endianness)
         cols = parse_on_the_wire(data.columns.values, endianness)
         vals = sum(parse_on_the_wire(col.values, endianness) for i,col in data.iterkv())
-        bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals, tabattrib=0, dicttype=99)
+        bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals, tabattrib=is_sorted, dicttype=99)
         
     else:    
         dtype = inv_types[type(data)]
@@ -317,6 +318,7 @@ def format_raw_list(val_type, length):
     return type_spec[2], length*int(type_spec[1])
 
 def get_data(bstream, endianness):
+    #import ipdb;ipdb.set_trace()
     val_type = bstream.read(8).int
     if val_type in int_types:
         data = int_types[val_type](bstream, endianness, val_type)
@@ -324,7 +326,7 @@ def get_data(bstream, endianness):
         data = get_hour(bstream.read(format(val_type, endianness)))
     elif val_type < 0:
         data = bstream.read(format(val_type, endianness))
-    elif 90 > val_type > 10:
+    elif 20 > val_type > 10:
         attributes = bstream.read(8).int
         length = bstream.read(format(INT, endianness))
         data = [get_hour(x) for x in bstream.readlist(format_list(val_type, endianness, length))]

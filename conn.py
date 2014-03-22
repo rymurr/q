@@ -49,15 +49,15 @@ class Connection(object):
       raise Exception ('unable to connect to host')
       
   def cursor(self):
-      return Cursor(self)
+      return Cursor(self.sock)
 
 
 class Cursor(object):
   '''
   DB-API 2.0 compliant cursor obj
   '''
-  def __init__(self, connection):
-      self.connection = connection
+  def __init__(self, sock):
+      self.sock = sock
       self.parser = parse.Parser()
       self.parser.update_types()
       
@@ -65,14 +65,12 @@ class Cursor(object):
     self._send(query)
     return self._receive()
       
-  def _send(self, query, sync = True):
-    if sync:
-      message = array.array('b', [0,1,0,0]) # 1 for synchronous requests
-    else:
-      message = array.array('b', [0,0,0,0]) # 1 for synchronous requests
+  def _send(self, query):
+    message = array.array('b', [0,1,0,0]) # 1 for synchronous requests
     message.fromstring(self.parser.write_integer(0)) # reserve space for message length
     message = self.parser.write(query,message)
     message[4:8] = self.parser.write_integer(len(message))
+    print message
     self.last_outgoing=message
     self.sock.send(message)
 
