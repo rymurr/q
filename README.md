@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/rymurr/q.svg?branch=master)](https://travis-ci.org/rymurr/q)
+
 ## ABOUT ##
 
 The q package is a q connection library implemented in Python.
