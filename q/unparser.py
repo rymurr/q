@@ -17,7 +17,12 @@ def format_bits(data, endianness = 'le', with_index=False, sort_on=None):
 
 #This is looking like it needs a refactor!
 def parse_on_the_wire(data, endianness, attributes = 0, with_index=False, sort_on = None):
-    if isinstance(data,np.ndarray):
+    if with_index and type(data) == pandas.DataFrame:
+        keys = parse_on_the_wire(pandas.DataFrame(data.index), endianness, attributes, False, sort_on)
+        vals = parse_on_the_wire(data, endianness, attributes, False, sort_on)
+        data_format = 'int{0}:8=type, bits'.format(endianness)
+        bstream = pack(data_format, (keys+vals), type='99')
+    elif isinstance(data,np.ndarray):
         dtype = inv_types[data.dtype.type]
         if data.dtype.type == np.object_:
             data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, bits'.format(endianness)
@@ -57,14 +62,12 @@ def parse_on_the_wire(data, endianness, attributes = 0, with_index=False, sort_o
     elif isinstance(data, str):
         bstream = pack('{0}*hex:8'.format(len(data)),*[hex(ord(i)) for i in data]) + BitStream(b'0x00')
     elif type(data) == pandas.DataFrame:
-        is_sorted = 1 if sort_on else 0#1 if data.index.is_monotonic else 0
+        is_sorted = 1 if sort_on else 0
         dtype = inv_types[type(data)]
         data_format = 'int{0}:8=type, int{0}:8=tabattrib, int{0}:8=dicttype, bits=cols,int{0}:8=typearray, int{0}:8=attributes, int{0}:32=length, bits=vals'.format(endianness)
         cols = parse_on_the_wire(data.columns.values, endianness)
         vals = sum(parse_on_the_wire(col.values, endianness, 3 if i==sort_on else 0) for i,col in data.iterkv())
-        if with_index:
-            indexes = parse_on_the_wire(data.index.values, endianness, 3)
-            vals = indexes+vals
+        #    indexes = parse_on_the_wire(data.index.values, endianness, 3)
         bstream = pack(data_format, cols=cols, type=dtype[0], typearray=0, attributes=0, length=len(data.columns), vals=vals, tabattrib=is_sorted, dicttype=99)
         
     else:    

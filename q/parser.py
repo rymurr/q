@@ -74,6 +74,7 @@ def get_dict(bstream, endianness, val_type):
     vals = get_data(bstream, endianness)
     if isinstance(keys, pandas.DataFrame):
         data = pandas.concat([keys, vals], axis = 1)
+        data = data.set_index(list(keys.columns))
     else:    
         data = dict(zip(keys, vals))
     return data
