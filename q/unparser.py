@@ -18,10 +18,10 @@ def format_bits(data, endianness = 'le', with_index=False, sort_on=None):
 #This is looking like it needs a refactor!
 def parse_on_the_wire(data, endianness, attributes = 0, with_index=False, sort_on = None):
     if with_index and type(data) == pandas.DataFrame:
-        keys = parse_on_the_wire(pandas.DataFrame(data.index), endianness, attributes, False, sort_on)
-        vals = parse_on_the_wire(data, endianness, attributes, False, sort_on)
+        keys = parse_on_the_wire(pandas.DataFrame(data.index), endianness, attributes, False, True if sort_on else None)
+        vals = parse_on_the_wire(data, endianness, attributes, False)
         data_format = 'int{0}:8=type, bits'.format(endianness)
-        bstream = pack(data_format, (keys+vals), type='99')
+        bstream = pack(data_format, (keys+vals), type='127' if sort_on else '99')
     elif isinstance(data,np.ndarray):
         dtype = inv_types[data.dtype.type]
         if data.dtype.type == np.object_:

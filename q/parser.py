@@ -81,7 +81,7 @@ def get_dict(bstream, endianness, val_type):
 
 def get_lambda_func(bstream, endianness, val_type):
     context = str_convert(bstream, endianness)
-    data = '.' + context + get_data(bstream, endianness)
+    data = ('' if context == '' else '.') + context + get_data(bstream, endianness)
     return data
 
 def get_ordered_dict(bstream, endianness, val_type):
@@ -89,6 +89,7 @@ def get_ordered_dict(bstream, endianness, val_type):
     vals = get_data(bstream, endianness)
     if isinstance(keys, pandas.DataFrame):
         data = pandas.concat([keys, vals], axis = 1)
+        data = data.set_index(list(keys.columns))
     else:    
         data = OrderedDict(zip(keys, vals))
     return data    

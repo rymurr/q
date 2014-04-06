@@ -92,14 +92,19 @@ def test_keyed_table():
     assert (data == parse(format_bits(data, with_index=True))).all().all()
 
 def test_sorted_keyed_table():
-    data = pandas.DataFrame([{'a':2,'b':3}])
+    data = pandas.DataFrame([{'a':2,'b':3}]).set_index('a')
     bits = b'0x010000003f0000007f6201630b00010000006100000001000000060001000000020000006200630b0001000000620000000100000006000100000003000000'
     assert (data.values == parse(bits).values).all()
+    assert bits == format_bits(data, with_index=True, sort_on='a').__str__()
+    assert (data == parse(format_bits(data, with_index=True))).all().all()
+
 
 def test_function():
-    data = '.{x+y}'
+    data = '{x+y}'
     bits = b'0x010000001500000064000a00050000007b782b797d'
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
     
 def test_non_root_function():
     data = '.d{x+y}'

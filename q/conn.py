@@ -5,7 +5,9 @@ import socket
 import array
 import cStringIO
 
-import parse 
+from parser import parse
+from unparser import format_bits
+from utils import get_header
 
 
 def connect(host = 'localhost', port = 5000, user = '', password = ''):
@@ -58,37 +60,28 @@ class Cursor(object):
   '''
   def __init__(self, sock):
       self.sock = sock
-      self.parser = parse.Parser()
-      self.parser.update_types()
       
   def execute(self, query):
     self._send(query)
     return self._receive()
       
   def _send(self, query):
-    message = array.array('b', [0,1,0,0]) # 1 for synchronous requests
-    message.fromstring(self.parser.write_integer(0)) # reserve space for message length
-    message = self.parser.write(query,message)
-    message[4:8] = self.parser.write_integer(len(message))
-    print message
+    message = format_bits(query)
     self.last_outgoing=message
-    self.sock.send(message)
+    print message
+    print query
+    self.sock.send(message.hex)
 
   def _receive(self):
     """read the response from the server"""
     header = self.sock.recv(8)
-    #Endianness of byte doesn't matter when determining endianness
-    endianness = lambda x:x
-    if not self.parser.read_byte(endianness,0,header)[0] == 1:
-      endianness = '>'.__add__
-    (data_size,self.offset) = self.parser.read_integer(endianness,4,header)
+    endianness, size = get_header(BitStream(header))
     
+    print header
     bytes = self._recv_size(data_size - 8)
-    #ensure that it reads all the data
-    if self.parser.read_byte(endianness,0,bytes)[0] == -128 :
-      (val,self.offset) = self.parser.read_symbol(endianness,1,bytes)
-      raise Exception(val)
-    (val,self.offset) = self.parser.read(endianness,0,bytes)
+    print bytes
+    val = parse(BitStream(header+bytes))
+    print val
     return val
   
   def _recv_size(self, size):
