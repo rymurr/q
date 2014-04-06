@@ -97,6 +97,7 @@ def format_bits(data, endianness = 'le'):
 
 #This is looking like it needs a refactor!
 def parse_on_the_wire(data, endianness, attributes = 0):
+    print data
     if isinstance(data,np.ndarray):
         dtype = inv_types[data.dtype.type]
         if data.dtype.type == np.object_:

@@ -71,15 +71,14 @@ def test_dict_vector():
 
 def test_table_simple():
     data = pandas.DataFrame({'a':[1,2],'b':[3,4]}, index=[1,0])
-    bits = b'0x010000002f0000006200630b0002000000610062000000020000000600010000000200000006000100000003000000'
-    tits = b'0x010000002f000000620b0002000000610062000000020000000600010000000200000006000100000003000000'
+    bits = b'0x01000000370000006200630b00020000006100620000000200000006000200000001000000020000000600020000000300000004000000'
     assert bits == format_bits(data).__str__()
-    assert data == parse(format_bits(data)) 
+    assert (data.values == parse(format_bits(data)).values).all() 
     assert (data.values == parse(bits).values).all()
     
 def test_table_ordered():
-    data = pandas.DataFrame([{'a':2,'b':3}])
-    bits = b'0x010000002f0000006201630b0002000000610062000000020000000603010000000200000006000100000003000000'
+    data = pandas.DataFrame({'a':[1,2],'b':[3,4]})
+    bits = b'0x010000002f0000006201630b00020000006100620000000200000006030200000001000000020000000603020000000300000004000000'
     assert (data.values == parse(bits).values).all()
     assert bits == format_bits(data).__str__()
     assert data == parse(format_bits(data)) 
