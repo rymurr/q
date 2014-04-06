@@ -11,7 +11,7 @@ import numpy as np
 
 from collections import OrderedDict
 from nose.tools import assert_almost_equal, assert_items_equal
-from protocol import parse, format_bits
+from q.protocol import parse, format_bits
 
 def assert_all_equal(input_a, input_b):
     if len(input_a) != len(input_b):
