@@ -71,18 +71,18 @@ def test_dict_vector():
     assert bits == format_bits(data).__str__()
 
 def test_table_simple():
-    data = pandas.DataFrame({'a':[1,2],'b':[3,4]}, index=[1,0])
+    data = pandas.DataFrame({'a':[1,2],'b':[3,4]})
     bits = b'0x01000000370000006200630b00020000006100620000000200000006000200000001000000020000000600020000000300000004000000'
     assert bits == format_bits(data).__str__()
-    assert (data.values == parse(format_bits(data)).values).all() 
+    assert (data == parse(format_bits(data))).all().all()
     assert (data.values == parse(bits).values).all()
     
 def test_table_ordered():
     data = pandas.DataFrame({'a':[1,2],'b':[3,4]})
-    bits = b'0x010000002f0000006201630b00020000006100620000000200000006030200000001000000020000000603020000000300000004000000'
+    bits = b'0x01000000370000006201630b00020000006100620000000200000006030200000001000000020000000600020000000300000004000000'
     assert (data.values == parse(bits).values).all()
-    assert bits == format_bits(data).__str__()
-    assert data == parse(format_bits(data)) 
+    assert bits == format_bits(data, sort_on='a').__str__()
+    assert (data == parse(format_bits(data))).all().all()
     
 def test_keyed_table():
     data = pandas.DataFrame([{'a':2,'b':3}])

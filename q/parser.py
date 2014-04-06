@@ -93,7 +93,6 @@ def get_ordered_dict(bstream, endianness, val_type):
     return data    
 
 def get_data(bstream, endianness):
-    #import ipdb;ipdb.set_trace()
     val_type = bstream.read(8).int
     if val_type in int_types:
         data = int_types[val_type](bstream, endianness, val_type)
