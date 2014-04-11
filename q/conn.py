@@ -4,6 +4,7 @@ TODO sort out send and recieve in cursor function! Lots of mess there
 import socket
 import array
 import cStringIO
+from bitstring import BitStream
 
 from parser import parse
 from unparser import format_bits
@@ -50,17 +51,6 @@ class Connection(object):
     except:
       raise Exception ('unable to connect to host')
       
-  def cursor(self):
-      return Cursor(self.sock)
-
-
-class Cursor(object):
-  '''
-  DB-API 2.0 compliant cursor obj
-  '''
-  def __init__(self, sock):
-      self.sock = sock
-      
   def execute(self, query):
     self._send(query)
     return self._receive()
@@ -70,27 +60,23 @@ class Cursor(object):
     self.last_outgoing=message
     print message
     print query
-    self.sock.send(message.hex)
+    self.sock.send(BitStream('0x01000000110000000a0003000000312b32').bytes)#message.bytes)
+    #self.sock.send(array.array('b',"1+2\0").tostring())#message.bytes)
 
   def _receive(self):
     """read the response from the server"""
-    header = self.sock.recv(8)
-    endianness, size = get_header(BitStream(header))
-    
-    print header
-    bytes = self._recv_size(data_size - 8)
+    bytes = self._recv_size()
     print bytes
-    val = parse(BitStream(header+bytes))
+    val = parse(BitStream(bytes))
     print val
     return val
   
-  def _recv_size(self, size):
+  def _recv_size(self, size=8192):
     """read size bytes from the socket."""
     data=cStringIO.StringIO()
-    recv_size=min(size,8192)
+    recv_size=size
+    import pdb;pdb.set_trace()
     while data.tell()<size:
       data.write(self.sock.recv(recv_size))
-    v = data.getvalue()
-    data.close()
-    return v
+    return data.read()
   
