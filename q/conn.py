@@ -4,7 +4,7 @@ TODO sort out send and recieve in cursor function! Lots of mess there
 import socket
 import array
 import cStringIO
-from bitstring import BitStream
+from bitstring import ConstBitStream
 
 from parser import parse
 from unparser import format_bits
@@ -56,27 +56,31 @@ class Connection(object):
     return self._receive()
       
   def _send(self, query):
-    message = format_bits(query)
+    message = format_bits(query, async=True, endianness='be')
     self.last_outgoing=message
-    print message
-    print query
-    self.sock.send(BitStream('0x01000000110000000a0003000000312b32').bytes)#message.bytes)
+    self.sock.send(message.tobytes())
     #self.sock.send(array.array('b',"1+2\0").tostring())#message.bytes)
 
   def _receive(self):
     """read the response from the server"""
     bytes = self._recv_size()
-    print bytes
-    val = parse(BitStream(bytes))
-    print val
+    val = parse(ConstBitStream(bytes=bytes))
     return val
   
   def _recv_size(self, size=8192):
     """read size bytes from the socket."""
     data=cStringIO.StringIO()
     recv_size=size
-    import pdb;pdb.set_trace()
-    while data.tell()<size:
-      data.write(self.sock.recv(recv_size))
+    self.sock.settimeout(0.1)
+    while True:
+        try:
+            data.write(self.sock.recv(size))
+        except:
+            break  
+        if data.tell() < recv_size:
+            break
+        else:
+            recv_size += size
+    data.reset()
     return data.read()
   

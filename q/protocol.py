@@ -24,7 +24,7 @@ TODO:
 import pandas
 import datetime
 import numpy as np
-from bitstring import BitStream
+from bitstring import ConstBitStream
 from collections import OrderedDict
 
 #types: -ve is atomic +ve is vector
@@ -66,7 +66,7 @@ inv_types = {
         int: (-6, 'int', '32'),
         list: (0, '', ''),
         dict: (99, '', ''),
-        str: (-11, 'hex', '8'),
+        str: (-10, 'hex', '8'),
         OrderedDict: (127, '', ''),
         np.int64: (6, 'int', '32'),
         np.int8: (4, 'int', '8'),
@@ -75,12 +75,12 @@ inv_types = {
         }
 INT = -6
 BYTE = -4
-NULL = BitStream('0x00')
+NULL = ConstBitStream('0x00')
 Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
 MILLIS = 8.64E7 
 
 #header format
-header_format = 'intle:8=endian, intle:8=async, pad:16, intle:32=length, bits=data'
+header_format = 'int{0}:8=endian, int{0}:8=async, pad:16, int{0}:32=length, bits=data'
 
 
 

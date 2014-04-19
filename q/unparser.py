@@ -1,4 +1,4 @@
-from bitstring import BitStream, pack
+from bitstring import pack
 import pandas
 import numpy as np
 import datetime
@@ -6,12 +6,12 @@ from protocol import types, inv_types, header_format, MILLIS, Y2KDAYS, NULL, BYT
 from utils import str_convert, format, format_list, get_header, get_date_from_q, get_hour, format_raw_list 
 from collections import OrderedDict
 
-def format_bits(data, endianness = 'le', with_index=False, sort_on=None):
+def format_bits(data, endianness = 'be', with_index=False, sort_on=None, async=False):
     endian = 1 if endianness == 'le' else 0
-    data_format = header_format
+    data_format = header_format.format(endianness)
     data = parse_on_the_wire(data, endianness, with_index=with_index, sort_on=sort_on)
     length = len(data)/8 + 8
-    objects = {'endian':endian, 'async':0, 'length': length, 'data':data}
+    objects = {'endian':endian, 'async':1 if async else 0, 'length': length, 'data':data}
     bstream = pack(data_format, **objects)
     return bstream
 
@@ -60,7 +60,9 @@ def parse_on_the_wire(data, endianness, attributes = 0, with_index=False, sort_o
         bits = keys + vals
         bstream = pack(data_format, data=bits, type=dtype[0], attributes=attributes, length=len(data))
     elif isinstance(data, str):
-        bstream = pack('{0}*hex:8'.format(len(data)),*[hex(ord(i)) for i in data]) + BitStream(b'0x00')
+        dtype = inv_types[type(data)]
+        data_format = 'int{0}:8=type, int{0}:8=attributes, int{0}:32=length, {1}*hex:8'
+        bstream = pack(data_format.format(endianness, len(data)),type=-dtype[0], attributes=attributes, length=len(data), *[hex(ord(i)) for i in data]) 
     elif type(data) == pandas.DataFrame:
         is_sorted = 1 if sort_on else 0
         dtype = inv_types[type(data)]

@@ -1,7 +1,7 @@
 import pandas
 import numpy as np
 import datetime
-from bitstring import BitStream
+from bitstring import ConstBitStream
 from protocol import types, inv_types, header_format, MILLIS, Y2KDAYS, NULL, BYTE, INT
 from utils import str_convert, format, format_list, get_header, get_date_from_q, get_hour, format_raw_list 
 from collections import OrderedDict
@@ -121,7 +121,7 @@ def get_data(bstream, endianness):
     return data        
 
 def parse(bits):
-    bstream = BitStream(bits)
+    bstream = ConstBitStream(bits)
     endianness, size = get_header(bstream)
     while (bstream.pos < 8*size):
         data = get_data(bstream, endianness)
