@@ -104,62 +104,84 @@ def test_function():
     bits = b'0x010000001500000064000a00050000007b782b797d'
     assert data == parse(bits)
     assert bits == format_bits(data, function=True).__str__()
-    assert data == parse(format_bits(data, symbol=False, ))
+    assert data == parse(format_bits(data, function=True))
     
 def test_non_root_function():
     data = '.d{x+y}'
     bits = b'0x01000000160000006464000a00050000007b782b797d'
     assert data == parse(bits)
+    assert bits == format_bits(data, function=True).__str__()
+    assert data == parse(format_bits(data, function=True))
     
 def test_bool():
     data = False
     bits = b'0x010000000a000000ff00'
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
     
 def test_bool_vector():
     data = [False]
     bits = b'0x010000000f00000001000100000000'
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
     
 def test_short():
     data = 1
     bits = b'0x010000000b000000fb0100'
     assert data == parse(bits)
+    assert bits == format_bits(data, short=True).__str__()
+    assert data == parse(format_bits(data, short=True))
 
 def test_short_vector():
     data = [1]
     bits = b'0x01000000100000000500010000000100'
     assert data == parse(bits)
+    assert bits == format_bits(data, short=True).__str__()
+    assert data == parse(format_bits(data, short=True))
     
 def test_long():
-    data = 1
+    data = 1L
     bits = b'0x0100000011000000f90100000000000000'
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
 
 def test_long_vector():
-    data = [1]
+    data = [1L]
     bits = b'0x01000000160000000700010000000100000000000000'
     assert data == parse(bits)
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
 
 def test_real():
     data = 2.3
     bits = b'0x010000000d000000f833331340'
     assert_almost_equal(data, parse(bits))
+    assert_almost_equal(data, parse(format_bits(data, short=True)))
+    assert bits == format_bits(data, short=True).__str__()
 
 def test_real_vector():
     data = [2.3]
     bits = b'0x010000001200000008000100000033331340'
     assert_almost_equal(data[0], parse(bits)[0])
+    assert_almost_equal(data, parse(format_bits(data, short=True)))
+    assert bits == format_bits(data, short=True).__str__()
     
 def test_float():
     data = 2.3
     bits = b'0x0100000011000000f76666666666660240'
     assert_almost_equal(data, parse(bits))
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
 
 def test_float_vector():
     data = [2.3]
     bits = b'0x01000000160000000900010000006666666666660240'
     assert_almost_equal(data[0], parse(bits)[0])
+    assert bits == format_bits(data).__str__()
+    assert data == parse(format_bits(data))
 
 def test_month():
     data = datetime.datetime(2012,6,1)

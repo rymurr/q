@@ -63,6 +63,17 @@ types = {
         }
 
 inv_types = {
+        bool: (1, 'int', '8'),
+        np.bool: (-1, 'int', '8'),
+        np.int8: (4, 'int','8'), 
+        'int': (-5, 'int', '16'),
+        np.int16: (5, 'int', '16'), 
+        long: (-7, 'int', '64'),
+        np.int64: (7, 'int', '64'),
+        float: (-9, 'float', '64'),
+        'float': (-8, 'float', '32'),
+        np.float32: (8, 'float', '32'),
+        np.float64: (8, 'float', '64'),
         int: (-6, 'int', '32'),
         list: (0, '', ''),
         dict: (99, '', ''),
