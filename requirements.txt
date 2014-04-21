@@ -3,3 +3,5 @@ datetime
 numpy
 bitstring
 nose
+nosexcover
+python-coveralls
