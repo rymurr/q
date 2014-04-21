@@ -56,7 +56,8 @@ class Connection(object):
     return self._receive()
       
   def _send(self, query):
-    message = format_bits(query, async=True, endianness='be')
+    message = format_bits(query, async=True, symbol=False, endianness='be')
+    #print message
     self.last_outgoing=message
     self.sock.send(message.tobytes())
     #self.sock.send(array.array('b',"1+2\0").tostring())#message.bytes)
