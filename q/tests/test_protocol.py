@@ -103,8 +103,8 @@ def test_function():
     data = '{x+y}'
     bits = b'0x010000001500000064000a00050000007b782b797d'
     assert data == parse(bits)
-    assert bits == format_bits(data).__str__()
-    assert data == parse(format_bits(data))
+    assert bits == format_bits(data, function=True).__str__()
+    assert data == parse(format_bits(data, symbol=False, ))
     
 def test_non_root_function():
     data = '.d{x+y}'
