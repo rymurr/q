@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/rymurr/q.svg?branch=master)](https://travis-ci.org/rymurr/q)
+[![Coverage Status](https://coveralls.io/repos/rymurr/q/badge.png)](https://coveralls.io/r/rymurr/q)
 
 ## ABOUT ##
 
