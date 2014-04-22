@@ -26,6 +26,7 @@ import datetime
 import numpy as np
 from bitstring import ConstBitStream
 from collections import OrderedDict
+from time import mktime
 
 #types: -ve is atomic +ve is vector
 types = {
@@ -53,6 +54,8 @@ types = {
         14:('int', '32'), #date vector
         -15:('float', '64'), #datetime
         15:('float', '64'), #datetime vector
+        -16:('int', '64'), #nano datetime
+        16:('int', '64'), #nano datetime vector
         -17:('int', '32'), #hour
         17:('int', '32'), #hour vector
         -18:('int', '32'), #second
@@ -89,6 +92,7 @@ INT = -6
 BYTE = -4
 NULL = ConstBitStream('0x00')
 Y2KDAYS = datetime.datetime(2000,1,1).toordinal()
+Y2KMILLIS = mktime(datetime.datetime(2000,1,1).utctimetuple())
 MILLIS = 8.64E7 
 
 #header format

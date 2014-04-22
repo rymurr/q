@@ -2,7 +2,7 @@ import pandas
 import numpy as np
 import datetime
 from bitstring import ConstBitStream
-from protocol import types, inv_types, header_format, MILLIS, Y2KDAYS, NULL, BYTE, INT
+from protocol import types, inv_types, header_format, MILLIS, Y2KDAYS, NULL, BYTE, INT, Y2KMILLIS
 from utils import str_convert, format, format_list, get_header, get_date_from_q, get_hour, format_raw_list 
 from collections import OrderedDict
 
@@ -25,6 +25,10 @@ def get_date(bstream, endianness, val_type):
 def get_datetime(bstream, endianness, val_type):
     dt = bstream.read(format(val_type, endianness))
     return datetime.datetime.fromordinal(int(dt)+Y2KDAYS) + datetime.timedelta(milliseconds = dt%1*MILLIS)
+    
+def get_nanodatetime(bstream, endianness, val_type):
+    dt = bstream.read(format(val_type, endianness))/1E9
+    return datetime.datetime.utcfromtimestamp(dt+Y2KMILLIS) 
     
 def get_bool_list(bstream, endianness, val_type):
     attributes = bstream.read(8).int
@@ -62,6 +66,13 @@ def get_datetime_list(bstream, endianness, val_type):
     length = bstream.read(format(INT, endianness))
     dt = bstream.readlist(format_list(val_type, endianness, length))
     data = [datetime.datetime.fromordinal(int(x)+Y2KDAYS)+datetime.timedelta(milliseconds=x%1*MILLIS) for x in dt]
+    return data
+
+def get_nanodatetime_list(bstream, endianness, val_type):
+    attributes = bstream.read(8).int
+    length = bstream.read(format(INT, endianness))
+    dt = bstream.readlist(format_list(val_type, endianness, length))
+    data = [datetime.datetime.utcfromtimestamp(x/1E9+Y2KMILLIS) for x in dt]
     return data
 
 def get_table(bstream, endianness, val_type):
@@ -132,6 +143,7 @@ int_types = {-11:get_symbol,
     -13:get_month,
     -14:get_date,
     -15:get_datetime,
+    -16:get_nanodatetime,
     -20:[],
     1:get_bool_list,
     10:get_char_list,
@@ -139,6 +151,7 @@ int_types = {-11:get_symbol,
     13:get_month_list,
     14:get_date_list,
     15:get_datetime_list,
+    16:get_nanodatetime_list,
     20:[],
     98:get_table,
     99:get_dict,

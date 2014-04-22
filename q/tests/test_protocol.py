@@ -243,4 +243,14 @@ def test_datetime_vector():
     bits = b'0x01000000160000000f0001000000e9941f015bbeb140'
     assert data == parse(bits)
     
+def test_nanodatetime():
+    data = datetime.datetime(2012,6,8,8,31,53,981000)
+    bits = b'0x0100000011000000f040598f3fd94b7205'
+    assert data == parse(bits)
+    
+def test_nanodatetime_vector():
+    data = [datetime.datetime(2012,6,8,8,31,53,981000)]
+    bits = b'0x010000001600000010000100000040598f3fd94b7205'
+    assert data == parse(bits)
+    
 
