@@ -42,6 +42,14 @@ def get_symbol_list(bstream, endianness, val_type):
     data = [str_convert(bstream, endianness) for i in range(length)]
     return data
 
+def get_error(bstream, endianness, val_type):
+    data = get_char(bstream, endianness, val_type)
+    raise Exception(data)
+
+def get_char(bstream, endianness, val_type):
+    data = str_convert(bstream, endianness)
+    return data
+
 def get_char_list(bstream, endianness, val_type):
     attributes = bstream.read(8).int
     length = bstream.read(format(INT, endianness))
@@ -140,14 +148,17 @@ def parse(bits):
 
 int_types = {-11:get_symbol,
     -1:get_bool,
+    -12:get_nanodatetime,
     -13:get_month,
     -14:get_date,
     -15:get_datetime,
     -16:get_nanodatetime,
     -20:[],
+    -128:get_error,
     1:get_bool_list,
     10:get_char_list,
     11:get_symbol_list,
+    12:get_nanodatetime_list,
     13:get_month_list,
     14:get_date_list,
     15:get_datetime_list,

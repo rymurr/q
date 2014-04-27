@@ -48,6 +48,8 @@ types = {
         10:('int', '8', np.char), #char vector
         -11:('symbol',''), #symbol
         11:('symbol',''), #symbol vector
+        -12:('int', '64'), #nanos
+        12: ('int', '64'), #nanos vector
         -13:('int', '32'), #month
         13:('int', '32'), #month vector
         -14:('int', '32'), #date
