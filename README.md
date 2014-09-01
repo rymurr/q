@@ -5,6 +5,13 @@
 
 The q package is a q connection library implemented in Python.
 
+## Current Status
+The api to q is done though currently the compression that kdb uses is not working. So it really only works locally. Currently working on:
+
+ * building compression algo
+ * bug fixing and testing
+ * started a python-esque to q transpiler
+ * integrate traspiler into a pandas data frame, ipython engine, ipython magics, own stand alone language that sits as an extra layer between q/kdb and humans
 ## LICENSE ##
 
 This code is licensed under an MIT license.  See LICENSE for
