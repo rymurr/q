@@ -23,7 +23,9 @@ the full text.
 This project was originally a fork of Dan Nugets q library (http://github.com/nugend/q) which was a rewrite of Matt Warren's qPy (http://bitbucket.org/halotis/qpy) library. The current incarnation of this code has nothing in common with either project but the original authors still deserve credit. The main changes are to make the q connection wrapper more compliant with DB-API 2.0 and to try and hide some of the scary k/q stuff. There is also a much more pythonic and performant serializer/deserializer.
 
 ## Thoughts
-I can convert select and other sql operations into methods on object. Essentially map tables to variables and operations on tables to methods. Will this work. Is this flexible enough. Can I bridge python AST and q?
+I have build a select statement. How can I convert chains of commands together to produce a full ?[t;a;b;c] select statement? Is AST flexible enough or would I have to run a second pass? I could convert df.groupby('a').last() into df.select({'b':'a', 'c':'last "all columns"'}) and then run AST on the df.select?
+
+Also need to consider all the many complex types of group bys (by time, etc) and ordering. And many other bits/keywords of k/q! Also how can I use useful python things like try/catch in q? Troubesome things like the difference between symbols and strings. and namespaces!
 
 ## CONTACT ##
 
