@@ -5,3 +5,4 @@ bitstring
 nose
 nosexcover
 python-coveralls
+astunparse
