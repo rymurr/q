@@ -43,7 +43,6 @@ class Connection(object):
     '''
     try:
       self.sock.connect((self.host,self.port))
-      import ipdb;ipdb.set_trace()
       login = array.array('b',self.user + '\x03\x00') #null terminated signed char array (bytes)
       self.sock.send(login.tostring())
       result = self.sock.recv(1)  #blocking recv
