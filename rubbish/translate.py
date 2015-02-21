@@ -36,7 +36,7 @@ aggregationSet = set(['last','mean'])
 def nameAndArgsToKeyword(name, args):
     if name in groupbySet:
         arg = 'groupby'
-        keyword = ast.keyword(arg=arg, value = ast.Dict(keys=[args], values=[args]))
+        keyword = ast.keyword(arg=arg, value = ast.Dict(keys=args, values=args))
     elif name in aggregationSet:
         arg = 'aggregate'
         keyword = ast.keyword(arg=arg, value = ast.Dict(keys=[ast.Str(name),], values=[ast.List(elts=args)]))
@@ -105,8 +105,8 @@ class Parser(ast.NodeVisitor):
             table = self.visit(node.func.value)
             constraints = ';'.join(map(self.visit, node.args))
             groupby = ';'.join(map(self.visit, [i for i in node.keywords if i.arg == 'groupby']))
-            #aggregation = 
-            statement += '?[' + self.visit(node.func.value) + ';(' + ';'.join(map(self.visit, node.args)) + ');0b;()]'
+            aggregation = ';'.join(map(self.visit, [i for i in node.keywords if i.arg == 'aggregate']))
+            statement += '?[' + self.visit(node.func.value) + ';(' + ';'.join(map(self.visit, node.args)) + ');'+groupby+';'+aggregation+']'
         else:
             raise NotImplementedError
         return statement    
@@ -119,6 +119,9 @@ class Parser(ast.NodeVisitor):
 
     def visit_Str(self, node):
         return '`'+node.s
+
+    def visit_keyword(self, node):
+        return self.visit(node.value)
 
     def visit_Dict(self, node):
         return '(' + ' '.join(map(self.visit, node.keys)) + ')!(' + ' '.join(map(self.visit, node.values)) + ')'
